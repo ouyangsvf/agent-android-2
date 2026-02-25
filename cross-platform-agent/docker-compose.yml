@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  # WebRTC信令服务器（仅用于初始握手）
+  signal-server:
+    build:
+      context: ./signal-server
+      dockerfile: Dockerfile
+    container_name: agent-signal-server
+    ports:
+      - "8080:8080"
+      - "8081:8081/udp"  # TURN服务器
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - TURN_PORT=8081
+      - TURN_REALM=cross-platform-agent
+      - TURN_SECRET=${TURN_SECRET:-your-secret-key}
+      - CORS_ORIGIN=*
+      - LOG_LEVEL=info
+      - DATABASE_URL=postgresql://agent:${DB_PASSWORD:-agent-password}@postgres:5432/agent
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=  # 无密码
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # TURN服务器（用于NAT穿透）
+  coturn:
+    image: coturn/coturn:latest
+    container_name: agent-turn-server
+    ports:
+      - "3478:3478"
+      - "3478:3478/udp"
+      - "5349:5349"
+      - "5349:5349/udp"
+      - "10000-20000:10000-20000/udp"
+    environment:
+      - TURN_REALM=cross-platform-agent
+      - TURN_SECRET=${TURN_SECRET:-your-secret-key}
+    command: >
+      turnserver
+      --lt-cred-mech
+      --realm=cross-platform-agent
+      --static-auth-secret=${TURN_SECRET:-your-secret-key}
+      --listening-port=3478
+      --tls-listening-port=5349
+      --min-port=10000
+      --max-port=20000
+      --verbose
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  # PostgreSQL（仅存储设备元数据，不含消息）
+  postgres:
+    image: postgres:15-alpine
+    container_name: agent-postgres
+    environment:
+      - POSTGRES_USER=agent
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-agent-password}
+      - POSTGRES_DB=agent
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis（会话状态，无密码）
+  redis:
+    image: redis:7-alpine
+    container_name: agent-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+networks:
+  agent-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
