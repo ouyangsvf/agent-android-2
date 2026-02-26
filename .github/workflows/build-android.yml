@@ -9,6 +9,10 @@ jobs:
   build-android:
     runs-on: ubuntu-latest
     
+    defaults:
+      run:
+        working-directory: mobile-agent
+    
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -24,6 +28,7 @@ jobs:
       with:
         node-version: '20'
         cache: 'npm'
+        cache-dependency-path: mobile-agent/package-lock.json
         
     - name: Install dependencies
       run: npm ci --legacy-peer-deps
@@ -37,5 +42,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: app-debug
-        path: android/app/build/outputs/apk/debug/*.apk
+        path: mobile-agent/android/app/build/outputs/apk/debug/*.apk
         retention-days: 30
