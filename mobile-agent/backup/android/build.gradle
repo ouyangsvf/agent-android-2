@@ -1,0 +1,70 @@
+plugins {
+    id 'com.android.application'
+    id 'com.facebook.react'
+}
+
+android {
+    namespace 'com.mobileagent'
+    compileSdk 34
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    defaultConfig {
+        applicationId 'com.mobileagent'
+        minSdk 21
+        targetSdk 33
+        versionCode 1
+        versionName '2.0.0'
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+            crunchPngs false
+            debuggable true
+        }
+        release {
+            signingConfig signingConfigs.debug
+            minifyEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    packagingOptions {
+        pickFirst '**/libc++_shared.so'
+        pickFirst '**/libjsc.so'
+        exclude 'META-INF/DUMMY.SF'
+        exclude 'META-INF/DUMMY.RSA'
+    }
+    
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+}
+
+// 强制依赖版本解决冲突
+configurations.all {
+    resolutionStrategy {
+        force 'androidx.core:core:1.10.1'
+        force 'androidx.core:core-ktx:1.10.1'
+        force 'androidx.lifecycle:lifecycle-runtime:2.6.2'
+        force 'androidx.lifecycle:lifecycle-common:2.6.2'
+        force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.0'
+        force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.0'
+    }
+}
+
+apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle")
+applyNativeModulesAppBuildGradle(project)
+
+dependencies {
+    implementation 'com.facebook.react:react-android'
+    implementation 'androidx.core:core-ktx:1.10.1'
+    
+    // JSC 引擎 (Hermes 禁用后需要)
+    implementation 'org.webkit:android-jsc:+'
+}
